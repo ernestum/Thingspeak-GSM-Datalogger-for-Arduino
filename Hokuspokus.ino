@@ -1,10 +1,8 @@
-#include <SoftwareSerial.h>
-
-SoftwareSerial cell(8, 3); // RX, TX
 
 // Controll pins
 #define GNDCTRLPIN 12
 #define VCC2TRLPIN 9
+#define MODEM_RESET_PIN 4
 
 // Sensor pins and interupts
 #define SENS1INTER 1
@@ -13,89 +11,94 @@ SoftwareSerial cell(8, 3); // RX, TX
 #define SENS2PIN 7
 #define BATTSENSPIN A5
 
+#define DEBUG
+
 //http://api.thingspeak.com/update?api_key=YDHVCBHPKX9TOPXF&field1=BATTERY&field2=SENSOR1&field3=SENSOR2
 
-int batteryVoltage() {
-  int volt = analogRead(A5);
-  volt = map(volt, 0, 1024, 0, 15000) + 500; // compensate for diode drop
-  return volt;
-}
 
-int  sensorValue(int sensor) {
-  if (sensor) {
-    return !digitalRead(SENS2PIN);
-  }
-  return !digitalRead(SENS1PIN);
-}
-
-
-void printThingspeakString(float bat, int sensor1, int sensor2) {
-  Serial.print("http://api.thingspeak.com/update?api_key=YDHVCBHPKX9TOPXF&field1=");
-  Serial.print(bat);
-  Serial.print("&field2=");
-  Serial.print(sensor1);
-  Serial.print("&field3=");
-  Serial.println(sensor2);
+inline void debug(char* message) {
+#ifdef DEBUG
+  Serial.print("\t->"); Serial.println(message); Serial.flush();
+#endif  
 }
 
 void setup()
 {
+  float bat = 20, sensor1 = 20, sensor2 = 20;
   Serial.begin(9600);
   while (!Serial) {}
-  cell.begin(9600);
+  Serial1.begin(9600);
   Serial.print("Starting modem communication...");
-  delay(5000);
+  delay(2000);
   Serial.print("OK\nIntroduce your AT commands:\n");
-  cell.println("ATE1");
-  readAllFromCell(1000);
-  cell.println("AT+QICLOSE");
-  readAllFromCell(1000);
-  cell.println("AT+QIREGAPP=\"web.be\",\"web\",\"web\"");
-  readAllFromCell(1000);
-  cell.println("AT+QINDI=0");
-  readAllFromCell(1000);
-  cell.println("AT+QIOPEN=\"TCP\",\"184.106.153.149\",80");
-  readAllFromCell(5000);
-  cell.println("AT+QISEND");
-  readAllFromCell(100);
-  cell.println("GET /update?api_key=YDHVCBHPKX9TOPXF&field1=42&field2=5&field3=5 HTTP/1.0\n\n\x1A");
-  //cell.println("GET / HTTP/1.0\n\n\x1A");
-  readAllFromCell(50000);
-  
+
+
+  sendData(0, 0, 0);
+
   Serial.println("Finished Listening");
- 
-// configure some pins
-  //pinMode(GNDCTRLPIN, OUTPUT);
-  //pinMode(VCC2TRLPIN, OUTPUT);
-  //pinMode(SENS1PIN, INPUT_PULLUP);
-  //pinMode(SENS2PIN, INPUT_PULLUP);
+
+  // configure some pins
+  pinMode(GNDCTRLPIN, OUTPUT);
+  pinMode(VCC2TRLPIN, OUTPUT);
+  pinMode(MODEM_RESET_PIN, OUTPUT);
+  pinMode(SENS1PIN, INPUT_PULLUP);
+  pinMode(SENS2PIN, INPUT_PULLUP);
+
+
+  delay(500);
 
 }
 
-void readAllFromCell(int timeout) {
+void readAllFromSerial1(int timeout) {
   unsigned long start = millis();
   while (millis() - start < timeout)
-    while (cell.available() > 0)
-      Serial.print((char)cell.read());
+    while (Serial1.available() > 0)
+      Serial.print((char)Serial1.read());
 }
 
+void sendTestData() {
+  Serial.println("Sending some test data");
+  sendData(random(0, 50), millis() / 1000, micros() / 1000);
+}
+
+
 void loop() {
-  //printThingspeakString(batteryVoltage(), sensorValue(0), sensorValue(1));
-  //delay(1000);
+
+  //    Serial.print("Waiting for ms "); Serial.println(tenMinutes);
+  //    delay(tenMinutes);
+  //  manualModemControl();
+  //  int bat = batteryVoltage();
+  //  Serial.print(sensorValue(0)); Serial.print('\t'); Serial.print(sensorValue(1)); Serial.print('\t'); Serial.println(bat);
+  //  for(;bat >0; bat -= 100)
+  //    Serial.print('-');
+
+  //  Serial.println();
+  //  delay(100);
+  //  enableModem();
+  //  delay(300);
+  //  //sendTestData();
+  //  sendData(batteryVoltage(), sensorValue(0), sensorValue(1));
+  //  disableModem();
+  //  Serial.println("Some Testdata sent!");
+  //  delay(30000);
+
   char incoming_char;
-   if(cell.available() > 0)
+  if (Serial1.available() > 0)
   {
-    incoming_char = cell.read();
-    if (incoming_char == 10)
-      Serial.println();
-    else
-      Serial.print(incoming_char);
+    incoming_char = Serial1.read();
+    printCharDetail(incoming_char);
+    //    if (incoming_char == 10)
+    //      Serial.println();
+    //    else
+    //      Serial.print(incoming_char);
   }
 
   if (Serial.available() > 0)
   {
     incoming_char = Serial.read();
-    cell.print(incoming_char);
+    Serial1.print(incoming_char);
   }
 }
+
+
 
