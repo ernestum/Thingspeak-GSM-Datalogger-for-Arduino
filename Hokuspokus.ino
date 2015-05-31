@@ -33,7 +33,7 @@ void setup()
   Serial.print("OK\nIntroduce your AT commands:\n");
 
 
-  sendData(0, 0, 0);
+  tryPushToThingSpeak(0, 0, 0);
 
   Serial.println("Finished Listening");
 
@@ -56,10 +56,6 @@ void readAllFromSerial1(int timeout) {
       Serial.print((char)Serial1.read());
 }
 
-void sendTestData() {
-  Serial.println("Sending some test data");
-  sendData(random(0, 50), millis() / 1000, micros() / 1000);
-}
 
 
 void loop() {
