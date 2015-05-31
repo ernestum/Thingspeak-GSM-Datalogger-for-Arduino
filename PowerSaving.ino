@@ -15,6 +15,11 @@ void sensor2Interrupt(void) {
   sensor2Changed = true;
 }
 
+ISR(WDT_vect)
+{
+  Serial.println("WATCHDOC!");
+}
+
 void enableWatchdog() {
   /* Clear the reset flag. */
   MCUSR &= ~(1<<WDRF);
@@ -32,13 +37,15 @@ void enableWatchdog() {
 }
 
 void gotoSleep() {
-  attachInterrupt(SENS1INTER, sensor1Interrupt, LOW); //THe logic is inverted
-  attachInterrupt(SENS1INTER, sensor1Interrupt, LOW);
-  delay(100);
+  //attachInterrupt(SENS1INTER, sensor1Interrupt, LOW); //THe logic is inverted
+  //attachInterrupt(SENS2INTER, sensor2Interrupt, LOW);
+  //delay(100);
 
   set_sleep_mode(SLEEP_MODE_PWR_DOWN);
 
   sleep_enable();
+  Serial.println("Going to sleep!");
+    Serial.flush();
 
   sleep_mode();
 
@@ -47,6 +54,9 @@ void gotoSleep() {
   /* First thing to do is disable sleep. */
   sleep_disable();
   power_all_enable();
+//  Serial.begin(19200);
+//  while(!Serial) {}
+  Serial.println("Woke up from sleep!");
 }
 
 

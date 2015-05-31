@@ -26,16 +26,17 @@ void setup()
 {
   float bat = 20, sensor1 = 20, sensor2 = 20;
   Serial.begin(9600);
-  while (!Serial) {}
+  //while (!Serial) {} //Needs to be commented out when running in "headless" mode (without a serial monitor open)
   Serial1.begin(9600);
   Serial.print("Starting modem communication...");
   delay(2000);
   Serial.print("OK\nIntroduce your AT commands:\n");
+  pinMode(13, OUTPUT);
 
-
-  tryPushToThingSpeak(0, 0, 0);
+  pushToThingSpeak(0, 0, 0);
 
   Serial.println("Finished Listening");
+  Serial.flush();
 
   // configure some pins
   pinMode(GNDCTRLPIN, OUTPUT);
@@ -43,9 +44,7 @@ void setup()
   pinMode(MODEM_RESET_PIN, OUTPUT);
   pinMode(SENS1PIN, INPUT_PULLUP);
   pinMode(SENS2PIN, INPUT_PULLUP);
-
-
-  delay(500);
+  
 
 }
 
