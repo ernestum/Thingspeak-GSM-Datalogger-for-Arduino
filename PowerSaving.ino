@@ -1,6 +1,12 @@
 #include <avr/sleep.h>
 #include <avr/power.h>
 
+/* Links:
+http://shelvin.de/arduino-in-den-sleep_mode_pwr_down-schlaf-modus-setzen/
+http://www.mikrocontroller.net/articles/Sleep_Mode
+http://donalmorrissey.blogspot.nl/2010/04/sleeping-arduino-part-5-wake-up-via.html
+*/
+
 volatile boolean sensor1Changed = false, sensor2Changed = false;
 
 void sensor1Interrupt(void) {
@@ -61,33 +67,3 @@ void gotoSleep() {
 
 
 
-//Call this in the main loop. Then write e on serial to enable and d to disable
-void manualModemControl() {
-  if (Serial.available())
-    switch (Serial.read()) {
-      case 'e' :
-        enableModem();
-        break;
-      case 'd':
-        disableModem();
-        break;
-    }
-}
-
-void enableModem() {
-  digitalWrite(GNDCTRLPIN, HIGH);
-  digitalWrite(VCC2TRLPIN, HIGH);
-  digitalWrite(MODEM_RESET_PIN, HIGH);
-#ifdef DEBUG
-  debug("Enabled Modem");
-#endif
-}
-
-void disableModem() {
-  digitalWrite(GNDCTRLPIN, LOW);
-  digitalWrite(VCC2TRLPIN, LOW);
-  digitalWrite(MODEM_RESET_PIN, LOW);
-#ifdef DEBUG
-  debug("Disabeled Modem");
-#endif
-}

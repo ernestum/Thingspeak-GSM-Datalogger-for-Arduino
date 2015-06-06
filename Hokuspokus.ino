@@ -1,4 +1,6 @@
+#define DEBUG
 
+#include "PowerControledThingspeakConnection.h"
 // Controll pins
 #define GNDCTRLPIN 12
 #define VCC2TRLPIN 9
@@ -11,29 +13,20 @@
 #define SENS2PIN 7
 #define BATTSENSPIN A5
 
-#define DEBUG
+
 
 //http://api.thingspeak.com/update?api_key=YDHVCBHPKX9TOPXF&field1=BATTERY&field2=SENSOR1&field3=SENSOR2
 
-
-inline void debug(char* message) {
-#ifdef DEBUG
-  Serial.print("\t->"); Serial.println(message); Serial.flush();
-#endif  
-}
+PowerControledThingspeakConnection modem(Serial1, GNDCTRLPIN, VCC2TRLPIN, MODEM_RESET_PIN);
 
 void setup()
 {
-  float bat = 20, sensor1 = 20, sensor2 = 20;
   Serial.begin(9600);
-  //while (!Serial) {} //Needs to be commented out when running in "headless" mode (without a serial monitor open)
-  Serial1.begin(9600);
-  Serial.print("Starting modem communication...");
-  delay(2000);
-  Serial.print("OK\nIntroduce your AT commands:\n");
-  pinMode(13, OUTPUT);
+  while (!Serial) {} //Needs to be commented out when running in "headless" mode (without a serial monitor open)
 
-  pushToThingSpeak(0, 0, 0);
+  Serial1.begin(9600);
+
+//  modem.pushToThingSpeak(0, 0, 0);
 
   Serial.println("Finished Listening");
   Serial.flush();
@@ -42,8 +35,14 @@ void setup()
   pinMode(GNDCTRLPIN, OUTPUT);
   pinMode(VCC2TRLPIN, OUTPUT);
   pinMode(MODEM_RESET_PIN, OUTPUT);
+
+  digitalWrite(GNDCTRLPIN, HIGH);
+  digitalWrite(VCC2TRLPIN, HIGH);
+
   pinMode(SENS1PIN, INPUT_PULLUP);
   pinMode(SENS2PIN, INPUT_PULLUP);
+
+  modem.enableModem();
   
 
 }
@@ -58,41 +57,28 @@ void readAllFromSerial1(int timeout) {
 
 
 void loop() {
+//    modem.manualModemControlLoop();
+    modemSerialBridge();
+}
 
-  //    Serial.print("Waiting for ms "); Serial.println(tenMinutes);
-  //    delay(tenMinutes);
-  //  manualModemControl();
-  //  int bat = batteryVoltage();
-  //  Serial.print(sensorValue(0)); Serial.print('\t'); Serial.print(sensorValue(1)); Serial.print('\t'); Serial.println(bat);
-  //  for(;bat >0; bat -= 100)
-  //    Serial.print('-');
+void modemSerialBridge() {
+    char incoming_char;
+    if (Serial1.available() > 0)
+    {
+      incoming_char = Serial1.read();
+      Serial.print(incoming_char);
+//      printCharDetail(incoming_char);
+      //    if (incoming_char == 10)
+      //      Serial.println();
+      //    else
+      //      Serial.print(incoming_char);
+    }
 
-  //  Serial.println();
-  //  delay(100);
-  //  enableModem();
-  //  delay(300);
-  //  //sendTestData();
-  //  sendData(batteryVoltage(), sensorValue(0), sensorValue(1));
-  //  disableModem();
-  //  Serial.println("Some Testdata sent!");
-  //  delay(30000);
-
-  char incoming_char;
-  if (Serial1.available() > 0)
-  {
-    incoming_char = Serial1.read();
-    printCharDetail(incoming_char);
-    //    if (incoming_char == 10)
-    //      Serial.println();
-    //    else
-    //      Serial.print(incoming_char);
-  }
-
-  if (Serial.available() > 0)
-  {
-    incoming_char = Serial.read();
-    Serial1.print(incoming_char);
-  }
+    if (Serial.available() > 0)
+    {
+      incoming_char = Serial.read();
+      Serial1.print(incoming_char);
+    }
 }
 
 
