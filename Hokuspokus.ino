@@ -1,3 +1,5 @@
+#include <SoftwareSerial.h>
+#include <LowPower.h>
 #define DEBUG
 
 #include "PowerControledThingspeakConnection.h"
@@ -6,80 +8,40 @@
 #define VCC2TRLPIN 9
 #define MODEM_RESET_PIN 4
 
-// Sensor pins and interupts
-#define SENS1INTER 1
-#define SENS2INTER 4
-#define SENS1PIN 2
-#define SENS2PIN 7
-#define BATTSENSPIN A5
-
-
+#define NUM_TRANSMISSION_RETRIES 1
+#define DELAY_AFTER_TRANSMISSION_FAILURE 60*10 //in seconds
+#define REGULAR_UPDATE_INTERVAL 60*60 //in seconds
 
 //http://api.thingspeak.com/update?api_key=YDHVCBHPKX9TOPXF&field1=BATTERY&field2=SENSOR1&field3=SENSOR2
+SoftwareSerial modemSerial(8, 3); // RX, TX
 
-PowerControledThingspeakConnection modem(Serial1, GNDCTRLPIN, VCC2TRLPIN, MODEM_RESET_PIN);
+PowerControledThingspeakConnection modem(modemSerial, GNDCTRLPIN, VCC2TRLPIN, MODEM_RESET_PIN);
 
 void setup()
 {
   Serial.begin(9600);
-  while (!Serial) {} //Needs to be commented out when running in "headless" mode (without a serial monitor open)
-
-  Serial1.begin(9600);
-
-//  modem.pushToThingSpeak(0, 0, 0);
-
-  Serial.println("Finished Listening");
-  Serial.flush();
-
-  // configure some pins
-  pinMode(GNDCTRLPIN, OUTPUT);
-  pinMode(VCC2TRLPIN, OUTPUT);
-  pinMode(MODEM_RESET_PIN, OUTPUT);
-
-  digitalWrite(GNDCTRLPIN, HIGH);
-  digitalWrite(VCC2TRLPIN, HIGH);
-
-  pinMode(SENS1PIN, INPUT_PULLUP);
-  pinMode(SENS2PIN, INPUT_PULLUP);
-
-  modem.enableModem();
-  
-
+  modemSerial.begin(9600);
+//  while (!Serial) {} //Needs to be commented out when running in "headless" mode (without a serial monitor open)
+  enableSensors();
 }
 
-void readAllFromSerial1(int timeout) {
-  unsigned long start = millis();
-  while (millis() - start < timeout)
-    while (Serial1.available() > 0)
-      Serial.print((char)Serial1.read());
-}
-
-
+uint32_t elapsedSeconds = 0;
+uint32_t nextOutgoingUpdate = 0;
 
 void loop() {
-//    modem.manualModemControlLoop();
-    modemSerialBridge();
-}
-
-void modemSerialBridge() {
-    char incoming_char;
-    if (Serial1.available() > 0)
-    {
-      incoming_char = Serial1.read();
-      Serial.print(incoming_char);
-//      printCharDetail(incoming_char);
-      //    if (incoming_char == 10)
-      //      Serial.println();
-      //    else
-      //      Serial.print(incoming_char);
+//  modem.manualModemControlLoop();
+    if(elapsedSeconds >= nextOutgoingUpdate || sensorValueChanged()) {
+        Serial.println("TIME TO SEND NEW DADA!!!___________________________________________");
+        if(modem.pushToThingSpeak(NUM_TRANSMISSION_RETRIES,
+                                  batteryVoltage(),\
+                                  sensorValue(0),
+                                  sensorValue(1))) {
+            nextOutgoingUpdate = elapsedSeconds + REGULAR_UPDATE_INTERVAL;
+        } else {
+            nextOutgoingUpdate = elapsedSeconds + DELAY_AFTER_TRANSMISSION_FAILURE;
+        }
     }
-
-    if (Serial.available() > 0)
-    {
-      incoming_char = Serial.read();
-      Serial1.print(incoming_char);
-    }
+    LowPower.powerDown(SLEEP_8S, ADC_OFF, BOD_OFF);
+//    delay(8000);
+    elapsedSeconds += 8;
 }
-
-
-

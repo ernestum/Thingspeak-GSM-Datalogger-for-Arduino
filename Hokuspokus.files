@@ -2,4 +2,12 @@ DataAquisition.ino
 Hokuspokus.ino
 LICENSE
 ModemCommunication.ino
+Timeout.h
+DataAquisition.ino
+Debugging.h
+Hokuspokus.ino
+PowerControledThingspeakConnection.h
 PowerSaving.ino
+ThingspeakConnection.h
+Timeout.h
+DataAquisition.ino
