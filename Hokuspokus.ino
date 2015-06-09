@@ -9,8 +9,8 @@
 #define MODEM_RESET_PIN 4
 
 #define NUM_TRANSMISSION_RETRIES 1
-#define DELAY_AFTER_TRANSMISSION_FAILURE 60*10 //in seconds
-#define REGULAR_UPDATE_INTERVAL 60*60 //in seconds
+#define DELAY_AFTER_TRANSMISSION_FAILURE 60*60 //in seconds
+#define REGULAR_UPDATE_INTERVAL 60*60*20 //in seconds
 
 //http://api.thingspeak.com/update?api_key=YDHVCBHPKX9TOPXF&field1=BATTERY&field2=SENSOR1&field3=SENSOR2
 SoftwareSerial modemSerial(8, 3); // RX, TX

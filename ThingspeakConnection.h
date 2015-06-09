@@ -68,7 +68,8 @@ class ThingspeakConnection {
       bool tcpConnectSucess = false;
       for (int i = 0; i < NUM_TCP_CONNECTION_RETRIES && tcpConnectSucess == false; i++) {
         delay(FAST_TIMEOUT*i); //wait quite long between tcp connection attempts
-        tcpConnectSucess = sendCommand("AT+QIOPEN=\"TCP\",\"184.106.153.149\",80", "OK\r\nCONNECT OK\r\n", SLOW_TIMEOUT);
+        sendCommand("AT+QICLOSE", "OK\r\n", FAST_TIMEOUT);
+        tcpConnectSucess = sendCommand("AT+QIOPEN=\"TCP\",\"184.106.153.149\",80", "OK\r\nCONNECT OK\r\n", SLOW_TIMEOUT*i);
       }
       if (!tcpConnectSucess) {
         debug("Could not open TCP connection");
