@@ -23,11 +23,11 @@ class PowerControledThingspeakConnection : public ThingspeakConnection {
       pinMode(resetPin, OUTPUT);
     }
 
-    boolean pushToThingSpeak(int retries, float bat, int sensor1, int sensor2) {
+    boolean pushToThingSpeak(int retries, float bat, int sensor1, int sensor2, unsigned long estTime, unsigned long thisPushT, unsigned long nextPushT) {
       debug("Pushing data to thingspeak power controlled");
       while (retries > 0) {
         //Give him time to wake up also this prevents sending more than one push within 15 seconds because that is the maximum of thingspeak
-        boolean pushSuccess = tryPushToThingSpeak(bat, sensor1, sensor2);
+        boolean pushSuccess = tryPushToThingSpeak(bat, sensor1, sensor2, estTime, thisPushT, nextPushT);
         if (pushSuccess)
           return true;
         else
@@ -37,13 +37,13 @@ class PowerControledThingspeakConnection : public ThingspeakConnection {
       return false;
     }
 
-    boolean tryPushToThingSpeak(float bat, int sensor1, int sensor2) {
+    boolean tryPushToThingSpeak(float bat, int sensor1, int sensor2, unsigned long estTime, unsigned long thisPushT, unsigned long nextPushT) {
       debug("Trypush of power controled");
       if (state == OFF)
         if (!enableModem())
           return false;
 
-      bool pushSuccess = ThingspeakConnection::tryPushToThingSpeak(bat, sensor1, sensor2);
+      bool pushSuccess = ThingspeakConnection::tryPushToThingSpeak(bat, sensor1, sensor2, estTime, thisPushT, nextPushT);
       disableModem();
       return pushSuccess;
     }

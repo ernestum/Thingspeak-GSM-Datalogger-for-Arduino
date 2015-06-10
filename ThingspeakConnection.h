@@ -28,13 +28,15 @@ void printCharDetail(char incoming_char) {
 
 class ThingspeakConnection {
   public:
+
     ThingspeakConnection(Stream &communicationStream) :
-      serial(&communicationStream), lastPackageSent(0)
+      serial(&communicationStream), lastPackageSent(0), numAttempts(0), numSuccesses(0)
     {
 
     }
 
-    boolean tryPushToThingSpeak(float bat, int sensor1, int sensor2) {
+    boolean tryPushToThingSpeak(float bat, int sensor1, int sensor2, unsigned long estTime, unsigned long thisPushT, unsigned long nextPushT) {
+        numAttempts++;
       debug("Trypush of pure");
       debug("Disabeling echo!");
       int firstCommandTries = 5;
@@ -91,6 +93,16 @@ class ThingspeakConnection {
       serial->print(sensor1);
       serial->print("&field3=");
       serial->print(sensor2);
+      serial->print("&field4=");
+      serial->print(estTime);
+      serial->print("&field5=");
+      serial->print(thisPushT);
+      serial->print("&field6=");
+      serial->print(nextPushT);
+      serial->print("&field7=");
+      serial->print(numAttempts);
+      serial->print("&field8=");
+      serial->print(numSuccesses+1);
       serial->print("&headers=false");
       serial->println(" HTTP/1.0\n\n\x1A"); serial->flush();
       /// **********************************
@@ -116,6 +128,7 @@ class ThingspeakConnection {
         debug("Somehow we did not read CLOSED!");
 
       lastPackageSent = millis(); //TODO maybe replace this with a different timer because millis might be broken with the watchdog
+      numSuccesses++;
       return true;
     }
 
@@ -189,7 +202,7 @@ class ThingspeakConnection {
 
   private:
     Stream* serial;
-    unsigned long lastPackageSent;
+    unsigned long lastPackageSent, numAttempts, numSuccesses;
 
     boolean waitForTCPStack(unsigned int timeout) {
       Timeout t(timeout);

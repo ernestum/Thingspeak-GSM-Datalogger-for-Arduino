@@ -8,9 +8,9 @@
 #define VCC2TRLPIN 9
 #define MODEM_RESET_PIN 4
 
-#define NUM_TRANSMISSION_RETRIES 1
-#define DELAY_AFTER_TRANSMISSION_FAILURE 60*60 //in seconds
-#define REGULAR_UPDATE_INTERVAL 60*60*20 //in seconds
+#define NUM_TRANSMISSION_RETRIES 5
+#define DELAY_AFTER_TRANSMISSION_FAILURE 60*60*1 //in seconds
+#define REGULAR_UPDATE_INTERVAL 60*60*6 //in seconds
 
 //http://api.thingspeak.com/update?api_key=YDHVCBHPKX9TOPXF&field1=BATTERY&field2=SENSOR1&field3=SENSOR2
 SoftwareSerial modemSerial(8, 3); // RX, TX
@@ -25,8 +25,8 @@ void setup()
   enableSensors();
 }
 
-uint32_t elapsedSeconds = 0;
-uint32_t nextOutgoingUpdate = 0;
+unsigned long elapsedSeconds = 0;
+unsigned long nextOutgoingUpdate = 0;
 
 void loop() {
 //  modem.manualModemControlLoop();
@@ -35,7 +35,10 @@ void loop() {
         if(modem.pushToThingSpeak(NUM_TRANSMISSION_RETRIES,
                                   batteryVoltage(),\
                                   sensorValue(0),
-                                  sensorValue(1))) {
+                                  sensorValue(1),
+                                  elapsedSeconds,
+                                  nextOutgoingUpdate,
+                                  elapsedSeconds + REGULAR_UPDATE_INTERVAL)) {
             nextOutgoingUpdate = elapsedSeconds + REGULAR_UPDATE_INTERVAL;
         } else {
             nextOutgoingUpdate = elapsedSeconds + DELAY_AFTER_TRANSMISSION_FAILURE;
