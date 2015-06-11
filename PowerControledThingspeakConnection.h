@@ -23,54 +23,43 @@ class PowerControledThingspeakConnection : public ThingspeakConnection {
       pinMode(resetPin, OUTPUT);
     }
 
-    boolean pushToThingSpeak(int retries, float bat, int sensor1, int sensor2, unsigned long estTime, unsigned long thisPushT, unsigned long nextPushT) {
-      debug("Pushing data to thingspeak power controlled");
+    boolean pushToThingSpeak(int retries, float bat, int sensor1, int sensor2) {
+      D_MSG(1, "Push data to thingspeak");
       while (retries > 0) {
-        //Give him time to wake up also this prevents sending more than one push within 15 seconds because that is the maximum of thingspeak
-        boolean pushSuccess = tryPushToThingSpeak(bat, sensor1, sensor2, estTime, thisPushT, nextPushT);
-        if (pushSuccess)
+        boolean pushSuccess = tryPushToThingSpeak(bat, sensor1, sensor2);
+        if (pushSuccess) {
+          D_MSG(1, "Data pushed successfully!");
           return true;
-        else
+        }
+        else {
           retries--;
+          D_MSG(1, "Pushing data failed but we retry.");
+        }
       }
-      debug("Pushing data Failed");
+      D_MSG(1, "Pushing data failed completely; we give up for now");
       return false;
     }
 
-    boolean tryPushToThingSpeak(float bat, int sensor1, int sensor2, unsigned long estTime, unsigned long thisPushT, unsigned long nextPushT) {
-      debug("Trypush of power controled");
+    boolean tryPushToThingSpeak(float bat, int sensor1, int sensor2) {
+      D_MSG(2, "Enable power before we try to push");
       if (state == OFF)
         if (!enableModem())
           return false;
 
-      bool pushSuccess = ThingspeakConnection::tryPushToThingSpeak(bat, sensor1, sensor2, estTime, thisPushT, nextPushT);
+      bool pushSuccess = ThingspeakConnection::tryPushToThingSpeak(bat, sensor1, sensor2);
       disableModem();
       return pushSuccess;
-    }
-
-
-    //Call this in the main loop. Then write e on serial to enable and d to disable
-    void manualModemControlLoop() {
-      if (Serial.available())
-        switch (Serial.read()) {
-          case 'e' :
-            enableModem();
-            break;
-          case 'd':
-            disableModem();
-            break;
-        }
     }
 
     bool enableModem() {
       digitalWrite(gndCTRLPin, HIGH);
       digitalWrite(vccCTRLPin, HIGH);
       digitalWrite(resetPin, HIGH);
-      debug("Waiting for modem to enable");
+      D_MSG(3, "Waiting for modem to enable");
       Timeout t(SLOW_TIMEOUT);
       while (!sendCommand("ATE0", "OK\r\n", FAST_TIMEOUT)) {
         if (t.elapsed()) {
-          debug("Modem does not respond. Enabeling failed!");
+          D_MSG(3, "Modem does not respond. Enabeling failed!");
           state = OFF;
           digitalWrite(resetPin, LOW);
           digitalWrite(vccCTRLPin, LOW);
@@ -79,22 +68,14 @@ class PowerControledThingspeakConnection : public ThingspeakConnection {
         }
       }
       if (!sendCommand("AT+QIURC=0", "OK\r\n", FAST_TIMEOUT)) {
-        debug("Could not disable the call ready signal!");
+        D_MSG(3, "Could not disable the call ready signal!");
         state = OFF;
         digitalWrite(resetPin, LOW);
         digitalWrite(vccCTRLPin, LOW);
         digitalWrite(gndCTRLPin, LOW);
         return false;
       }
-//      if (!waitFor("Call Ready", SLOW_TIMEOUT * 4)) {
-//        debug("Got no call ready answer!!");
-//        state = OFF;
-//        digitalWrite(resetPin, LOW);
-//        digitalWrite(vccCTRLPin, LOW);
-//        digitalWrite(gndCTRLPin, LOW);
-//        return false;
-//      }
-      debug("Enabled Modem");
+      D_MSG(3, "Enabled Modem");
       state = ON;
       return true;
     }
@@ -104,7 +85,7 @@ class PowerControledThingspeakConnection : public ThingspeakConnection {
       digitalWrite(vccCTRLPin, LOW);
       digitalWrite(resetPin, LOW);
       delay(1000); //wait a second to make sure all power is gone
-      debug("Disabeled Modem");
+      D_MSG(2, "Disabeled Modem");
       state = OFF;
     }
 

@@ -35,10 +35,10 @@ class ThingspeakConnection {
 
     }
 
-    boolean tryPushToThingSpeak(float bat, int sensor1, int sensor2, unsigned long estTime, unsigned long thisPushT, unsigned long nextPushT) {
+    boolean tryPushToThingSpeak(float bat, int sensor1, int sensor2) {
         numAttempts++;
-      debug("Trypush of pure");
-      debug("Disabeling echo!");
+      D_MSG(2, "Now try to push data");
+      D_MSG(2, "Disabeling echo!");
       int firstCommandTries = 5;
       bool fistCommandSuccess = false;
       while (firstCommandTries > 0 && fistCommandSuccess == false) {
@@ -48,25 +48,25 @@ class ThingspeakConnection {
       if (!fistCommandSuccess)
         return false;
 
-      debug("Close any previous connections");
+      D_MSG(2, "Close any previous connections");
       sendCommand("AT+QICLOSE", "OK\r\n", FAST_TIMEOUT);
 
-      debug("Setting the apn access details");
+      D_MSG(2, "Setting the apn access details");
       sendCommand("AT+QIREGAPP=\"" GPRS_APN "\",\"" GPRS_USER "\",\"" GPRS_PASSWORD "\"", "OK\r\n", FAST_TIMEOUT);
       //      sendCommand("AT+QIREGAPP=\"web.be\",\"web\",\"web\"", "OK\r\n", FAST_TIMEOUT);
 
-      debug("Telling him to print out the incomming tcp data");
+      D_MSG(2, "Telling him to print out the incomming tcp data");
       if (!sendCommand("AT+QINDI=0", "OK\r\n", FAST_TIMEOUT)) {
-        debug("This Failed");
+        D_MSG(2, "This Failed");
         return false;
       }
-      debug("Waiting for the IP STACK to be ready");
+      D_MSG(2, "Waiting for the IP STACK to be ready");
       if (!waitForTCPStack(SLOW_TIMEOUT)) {
-        debug("No Ready IP Stack?");
+        D_MSG(2, "No Ready IP Stack?");
         return false;
       }
 
-      debug("Opening a connection to thingspeak");
+      D_MSG(2, "Opening a connection to thingspeak");
       bool tcpConnectSucess = false;
       for (int i = 0; i < NUM_TCP_CONNECTION_RETRIES && tcpConnectSucess == false; i++) {
         delay(FAST_TIMEOUT*i); //wait quite long between tcp connection attempts
@@ -74,13 +74,14 @@ class ThingspeakConnection {
         tcpConnectSucess = sendCommand("AT+QIOPEN=\"TCP\",\"184.106.153.149\",80", "OK\r\nCONNECT OK\r\n", SLOW_TIMEOUT*i);
       }
       if (!tcpConnectSucess) {
-        debug("Could not open TCP connection");
+        D_MSG(2, "Could not open TCP connection");
         return false;
       }
+      D_MSG(2, "Successfully opened TCP connection!");
 
-      debug("Sending the right http request");
+      D_MSG(2, "Sending the http request");
       if (!sendCommand("AT+QISEND", "> ", FAST_TIMEOUT)) {
-        debug("Getting no input prompt to send TCP data!");
+        D_MSG(2, "Getting no input prompt to send TCP data!");
         return false;
       }
 
@@ -93,39 +94,39 @@ class ThingspeakConnection {
       serial->print(sensor1);
       serial->print("&field3=");
       serial->print(sensor2);
-      serial->print("&field4=");
-      serial->print(estTime);
-      serial->print("&field5=");
-      serial->print(thisPushT);
-      serial->print("&field6=");
-      serial->print(nextPushT);
-      serial->print("&field7=");
-      serial->print(numAttempts);
-      serial->print("&field8=");
-      serial->print(numSuccesses+1);
+//      serial->print("&field4=");
+//      serial->print(estTime);
+//      serial->print("&field5=");
+//      serial->print(thisPushT);
+//      serial->print("&field6=");
+//      serial->print(nextPushT);
+//      serial->print("&field7=");
+//      serial->print(numAttempts);
+//      serial->print("&field8=");
+//      serial->print(numSuccesses+1);
       serial->print("&headers=false");
       serial->println(" HTTP/1.0\n\n\x1A"); serial->flush();
       /// **********************************
 
       if (!waitFor("SEND OK\r\n", SLOW_TIMEOUT)) {
-        debug("Sending was not successful!");
+        D_MSG(2, "Sending was not successful!");
         return false;
-      } else debug("YEA SENT DATA OUT!!!");
+      } else D_MSG(2, "TCP Data Sent");
       if (!readUntil("Status: 200 OK", SLOW_TIMEOUT)) {
-        debug("HTML Status is not 200, there is some error!");
+        D_MSG(2, "HTML Status is not 200, there is some error!");
         return false;
       }
       readUntil("\r\n\r\n", SLOW_TIMEOUT);//Read until that empty line right after the http header
       int responseNr = serial->parseInt();
       if (responseNr == 0) {
-        debug("The running counter from thingspeak was 0! We did not successfully send the data!");
+        D_MSG(2, "The running counter from thingspeak was 0! We did not successfully send the data!");
         return false;
       } else {
-        debug("Response was"); Serial.println(responseNr);
+        D_MSG(2, "Response was"); D_MSG(4, responseNr);
       }
 
       if (!readUntil("CLOSED\r\n", SLOW_TIMEOUT))
-        debug("Somehow we did not read CLOSED!");
+        D_MSG(2, "Somehow we did not read CLOSED!");
 
       lastPackageSent = millis(); //TODO maybe replace this with a different timer because millis might be broken with the watchdog
       numSuccesses++;
@@ -133,17 +134,11 @@ class ThingspeakConnection {
     }
 
     boolean sendCommand(char* command, char* expectedAnswer, unsigned int timeout) {
-      debug(command);
+      D_MSG(3, command);
       serial->println(command);
       serial->flush();
       if (!waitFor(expectedAnswer, timeout)) {
-#ifdef DEBUG
-        Serial.print("Timeout or wrong answer while executing '");
-        Serial.print(command);
-        Serial.print("' and waiting for the answer '");
-        Serial.print(expectedAnswer);
-        Serial.println('\'');
-#endif
+        D_MSG(4, "Timeout or wrong answer while executing command");
         return false;
       }
       return true;
@@ -174,25 +169,19 @@ class ThingspeakConnection {
       Timeout t(timeout);
       while (*answer != '\0') {
         if (!waitForNextChar(timeout) || t.elapsed()) {
-#ifdef DEBUG
-          Serial.print("Timeout while waiting for: ");
-          Serial.println(answer);
-#endif
+          D_MSG(4, "Timeout while waiting for: ");
+          D_MSG(5, answer);
           return false;
         }
         char inchar = serial->read();
         if (inchar == *answer) {
-#ifdef DEBUG
-          Serial.print(inchar);
-#endif
           ++answer;
         } else if (inchar == '\r' || inchar == '\n') {
           continue;
         }
         else {
-#ifdef DEBUG
-          Serial.print("XXX");
-#endif
+          D_MSG(4, "Read something else than");
+          D_MSG(5, answer);
           readUntil('\n', timeout);
           return false;
         }
@@ -224,19 +213,13 @@ class ThingspeakConnection {
       Timeout t(timeout);
       while (inchar != c) {
         if (!waitForNextChar(timeout)) {
-#ifdef DEBUG
-          Serial.print("Timeout while reading until ");
-          Serial.print(inchar);
-          Serial.println();
-#endif
+          D_MSG(4,"Timeout while reading until");
+          D_MSG(5, c);
           return false;
         }
         inchar = serial->read();
         if (t.elapsed())
           return false;
-#ifdef DEBUG
-        Serial.print(inchar);
-#endif
       }
       return true;
     }
@@ -249,9 +232,6 @@ class ThingspeakConnection {
           return false;
         }
         char inchar = serial->read();
-#ifdef DEBUG
-        Serial.print(inchar);
-#endif
         if (inchar == *answer)
           ++answer;
         else
@@ -267,9 +247,7 @@ class ThingspeakConnection {
       Timeout t(timeout);
       while (serial->available() == 0) {
         if (t.elapsed()) {
-#ifdef DEBUG
-          Serial.println("Timeout while waiting for next char");
-#endif
+            D_MSG(6, "Timeout waiting for next char");
           return false;
         }
       }
