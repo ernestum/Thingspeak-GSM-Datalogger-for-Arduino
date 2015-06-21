@@ -5,21 +5,22 @@
 #include "Debugging.h"
 #include "Timeout.h"
 
-// Timeouts in milliseconds
-#define FAST_TIMEOUT \
-  2000  // To be used for operations for which we expect a fast response like
-        // setting parameters on the modem etc.
-#define SLOW_TIMEOUT \
-  60000  // To be used for modem operations which might take a little longer
-         // like gprs network operations or powering up the modem
-
-#define NUM_TCP_CONNECTION_RETRIES 5
-
 #define GPRS_APN "web.be"
 #define GPRS_USER "web"
 #define GPRS_PASSWORD "web"
 
-//#ifdef DEBUG
+/// Timeouts are in milliseconds!
+/// To be used for operations for which we expect a fast response like setting
+/// parameters on the modem etc.
+#define FAST_TIMEOUT 2000
+
+/// To be used for modem operations which might take a little longer like gprs
+/// network operations or powering up the modem
+#define SLOW_TIMEOUT 60000
+
+#define NUM_TCP_CONNECTION_RETRIES 5
+
+// TODO: this is unused, remove in next release
 void printCharDetail(char incoming_char) {
   Serial.print((int)incoming_char);
   Serial.print('[');
@@ -27,8 +28,9 @@ void printCharDetail(char incoming_char) {
   Serial.print(']');
   Serial.print(' ');
 }
-//#endif
 
+/// A class that sends AT commands to a GPRS modem which make it send data to a
+/// thingspeak channel. It was written and tested with a Quectel M10 modem.
 class ThingspeakConnection {
  public:
   ThingspeakConnection(Stream& communicationStream)
@@ -37,10 +39,16 @@ class ThingspeakConnection {
         numAttempts(0),
         numSuccesses(0) {}
 
+  /// Tries to push the battery status and two sensor values to thingspeak.
+  /// Returns true if it was successfull (HTTP 200 and nonzero answer from
+  /// thingspeak), fals if something went wrong (even after wainting long and
+  /// trying some things a couple of times).
   boolean tryPushToThingSpeak(float bat, int sensor1, int sensor2) {
     numAttempts++;
     D_MSG(2, "Now try to push data");
     D_MSG(2, "Disabeling echo!");
+    // Firs we try for at least 5 times to send a simple command to the modem
+    // and check if it responds as expected
     int firstCommandTries = 5;
     bool fistCommandSuccess = false;
     while (firstCommandTries > 0 && fistCommandSuccess == false) {
@@ -49,6 +57,8 @@ class ThingspeakConnection {
     }
     if (!fistCommandSuccess) return false;
 
+    // Hwere we set up and prepeare everything for the new TCP connection to be
+    // opened
     D_MSG(2, "Close any previous connections");
     sendCommand("AT+QICLOSE", "OK\r\n", FAST_TIMEOUT);
 
@@ -56,14 +66,15 @@ class ThingspeakConnection {
     sendCommand("AT+QIREGAPP=\"" GPRS_APN "\",\"" GPRS_USER
                 "\",\"" GPRS_PASSWORD "\"",
                 "OK\r\n", FAST_TIMEOUT);
-    //      sendCommand("AT+QIREGAPP=\"web.be\",\"web\",\"web\"", "OK\r\n",
-    //      FAST_TIMEOUT);
 
-    D_MSG(2, "Telling him to print out the incomming tcp data");
+    D_MSG(2,
+          "Telling him to print out the incomming tcp data directly to the "
+          "serial interface");
     if (!sendCommand("AT+QINDI=0", "OK\r\n", FAST_TIMEOUT)) {
       D_MSG(2, "This Failed");
       return false;
     }
+
     D_MSG(2, "Waiting for the IP STACK to be ready");
     if (!waitForTCPStack(SLOW_TIMEOUT)) {
       D_MSG(2, "No Ready IP Stack?");
@@ -74,9 +85,11 @@ class ThingspeakConnection {
     bool tcpConnectSucess = false;
     for (int i = 0; i < NUM_TCP_CONNECTION_RETRIES && tcpConnectSucess == false;
          i++) {
-      delay(FAST_TIMEOUT *
-            i);  // wait quite long between tcp connection attempts
+      // Wait longer and longer after each new retry
+      delay(FAST_TIMEOUT * i);
+      // Close a possibly already established connection
       sendCommand("AT+QICLOSE", "OK\r\n", FAST_TIMEOUT);
+      // Here we increase the timeout with each new retry
       tcpConnectSucess = sendCommand("AT+QIOPEN=\"TCP\",\"184.106.153.149\",80",
                                      "OK\r\nCONNECT OK\r\n", SLOW_TIMEOUT * i);
     }
@@ -95,22 +108,14 @@ class ThingspeakConnection {
     /// **********************************
     /// Here we do the actual HTTP request
     /// **********************************
-    serial->print("GET /update?api_key=YDHVCBHPKX9TOPXF&field1=");
+    serial->print(
+        "GET /update?api_key=YDHVCBHPKX9TOPXF&field1=");  // TODO make the API
+                                                          // key configurable
     serial->print(bat);
     serial->print("&field2=");
     serial->print(sensor1);
     serial->print("&field3=");
     serial->print(sensor2);
-    //      serial->print("&field4=");
-    //      serial->print(estTime);
-    //      serial->print("&field5=");
-    //      serial->print(thisPushT);
-    //      serial->print("&field6=");
-    //      serial->print(nextPushT);
-    //      serial->print("&field7=");
-    //      serial->print(numAttempts);
-    //      serial->print("&field8=");
-    //      serial->print(numSuccesses+1);
     serial->print("&headers=false");
     serial->println(" HTTP/1.0\n\n\x1A");
     serial->flush();
@@ -121,6 +126,7 @@ class ThingspeakConnection {
       return false;
     } else
       D_MSG(2, "TCP Data Sent");
+
     if (!readUntil("Status: 200 OK", SLOW_TIMEOUT)) {
       D_MSG(2, "HTML Status is not 200, there is some error!");
       return false;
@@ -139,15 +145,19 @@ class ThingspeakConnection {
     }
 
     if (!readUntil("CLOSED\r\n", SLOW_TIMEOUT))
-      D_MSG(2, "Somehow we did not read CLOSED!");
+      D_MSG(
+          2,
+          "Somehow we did not read CLOSED! We still assume the data was sent");
 
-    lastPackageSent = millis();  // TODO maybe replace this with a different
-                                 // timer because millis might be broken with
-                                 // the watchdog
+    lastPackageSent = millis();  // TODO: unused, remove in the next release
     numSuccesses++;
     return true;
   }
 
+  /// Sends a command and waits for an expected answer by the modem as long as
+  /// the timeout did not elapse. Returns true, if the answer was actually
+  /// returned in time, false it the timeout elapsed or the answer was a
+  /// different one.
   boolean sendCommand(char* command, char* expectedAnswer,
                       unsigned int timeout) {
     D_MSG(3, command);
@@ -160,6 +170,8 @@ class ThingspeakConnection {
     return true;
   }
 
+  /// To be called repeatedly in the main loop in order to establish a bridge
+  /// between the main Serial interface and the serial interface of the modem.
   void modemSerialBridgeLoop() {
     char incoming_char;
     if (serial->available() > 0) {
@@ -173,13 +185,10 @@ class ThingspeakConnection {
     }
   }
 
-  /**
-  * Reads from Serial1 and checks if the incoming bytes match an expected
-  * answer.
-  * Leading carriage returns and newlines are skipped. As soon as a byte dos not
-  * match the expected answer it skips to the first newline.
-  * Returns true if the full answer was matched. False otherwise
-  */
+  /// Reads from the serial inteface and checks if the incoming bytes match an
+  /// expected answer. Leading carriage returns and newlines are skipped. As
+  /// soon as a byte does not match the expected answer, it skips to the first
+  /// newline. Returns true if the full answer was matched, false otherwise.
   boolean waitFor(char* answer, unsigned int timeout) {
     Timeout t(timeout);
     while (*answer != '\0') {
@@ -204,9 +213,16 @@ class ThingspeakConnection {
   }
 
  private:
+  /// The serial interface to be used to communicate with the modem
   Stream* serial;
+
+  /// TODO: Some unused variables to be removed in the next release
   unsigned long lastPackageSent, numAttempts, numSuccesses;
 
+  /// Waits until the TCP stack of the modem is ready. For this the state of the
+  /// TCP stack is constantly checked using AT+QISTAT in 50ms intervals. If the
+  /// stack is not ready before the timeout elapsed we give up and return false,
+  /// otherwise true.
   boolean waitForTCPStack(unsigned int timeout) {
     Timeout t(timeout);
     while (
@@ -217,24 +233,9 @@ class ThingspeakConnection {
     return true;
   }
 
-  /**
-   * Reads from Serial1 until a given char is read
-   */
-  boolean readUntil(char c, unsigned int timeout) {
-    char inchar = c - 1;
-    Timeout t(timeout);
-    while (inchar != c) {
-      if (!waitForNextChar(timeout)) {
-        D_MSG(4, "Timeout while reading until");
-        D_MSG(5, c);
-        return false;
-      }
-      inchar = serial->read();
-      if (t.elapsed()) return false;
-    }
-    return true;
-  }
-
+  /// Reads from the serial interface until a certain character sequence is
+  /// found or the timeout elapsed. Returns true if the character sequence was
+  /// found, false if the timout elapsed.
   boolean readUntil(char* answer, unsigned int timeout) {
     char* startChar = answer;
     Timeout t(timeout);
@@ -251,9 +252,27 @@ class ThingspeakConnection {
     return true;
   }
 
-  /**
-   * Actively waits for a new char to be available on Serial1
-   */
+  /// Reads from the serial interface until a given char c is read or the
+  /// timeout elapsed. Returns true if we actually found the char, false if the
+  /// timeout elapsed.
+  boolean readUntil(char c, unsigned int timeout) {
+    char inchar = c - 1;
+    Timeout t(timeout);
+    while (inchar != c) {
+      if (!waitForNextChar(timeout)) {
+        D_MSG(4, "Timeout while reading until");
+        D_MSG(5, c);
+        return false;
+      }
+      inchar = serial->read();
+      if (t.elapsed()) return false;
+    }
+    return true;
+  }
+
+  /// Actively (blocking) waits for a new char to be available on the serial
+  /// interface. Returns true if there actually was a next char, false if we got
+  /// impatient and cancelled waiting because of the timeout
   boolean waitForNextChar(unsigned int timeout) {
     Timeout t(timeout);
     while (serial->available() == 0) {

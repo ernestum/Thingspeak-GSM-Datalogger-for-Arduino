@@ -77,23 +77,6 @@ class Queue {
   /// Returns the first element of the queue without removing it
   T peek() { return array[exit]; }
 
-  //    void printOut() {
-  //      for (int i = 0; i < QSIZE; i++) {
-  //        Serial.print(array[i]); Serial.print('\t');
-  //      }
-  //      Serial.println();
-  //      for (int i = 0; i < QSIZE; i++) {
-  //        char c = ' ';
-  //        if (i == entry) c = '^';
-  //        if (i == exit) c = 'v';
-  //        if (i == entry && i == exit) c = 'I';
-  //        Serial.print(c); Serial.print('\t');
-  //      }
-  //      Serial.print("size: "); Serial.print(size);
-  //      Serial.println();
-  //      Serial.println();
-  //    }
-
   /// Stores the amout of elements in the queue
   uint8_t size;
 
@@ -123,37 +106,6 @@ void setup() {
   modemSerial.begin(9600);
   enableSensors();
 }
-
-// void queueTest() {
-//  Queue<int> testQueue;
-//  testQueue.enqueue(1);
-//  testQueue.enqueue(2);
-//  testQueue.enqueue(3);
-//  testQueue.enqueue(4);
-//  testQueue.enqueue(5);
-//  testQueue.enqueue(6);
-//  testQueue.enqueue(7);
-//  testQueue.printOut();
-//  Serial.println(testQueue.dequeue());
-//  Serial.println(testQueue.dequeue());
-//  Serial.println(testQueue.dequeue());
-//
-//  testQueue.printOut();
-//
-//  testQueue.enqueue(10);
-//  testQueue.enqueue(11);
-//
-//  testQueue.printOut();
-//
-//  Serial.println(testQueue.dequeue());
-//  Serial.println(testQueue.dequeue());
-//  Serial.println(testQueue.dequeue());
-//
-//  testQueue.printOut();
-//
-//  Serial.println(testQueue.dequeue());
-//  Serial.println(testQueue.dequeue());
-//}
 
 // The estimated number of seconds elapsed since startup
 unsigned long elapsedSeconds = 0;

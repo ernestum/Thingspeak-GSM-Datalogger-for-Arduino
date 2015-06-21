@@ -6,6 +6,9 @@
 
 enum PowerState { ON, OFF };
 
+/// This class extends the functionality of the normal ThingspeakConnection by
+/// powering and unpowering the modem between transmissions to save power.
+/// Special purpose hardware is required for this!
 class PowerControledThingspeakConnection : public ThingspeakConnection {
  public:
   PowerControledThingspeakConnection(Stream &communicationStream,
