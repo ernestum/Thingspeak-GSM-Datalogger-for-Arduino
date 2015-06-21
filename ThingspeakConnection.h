@@ -1,10 +1,9 @@
-#include <Arduino.h>
-
 #ifndef THINGSPEAKCONNECTION_H
 #define THINGSPEAKCONNECTION_H
 #include "Debugging.h"
 #include "Timeout.h"
 
+#define THINGSPEAK_CHANNEL_KEY "YDHVCBHPKX9TOPXF"
 #define GPRS_APN "web.be"
 #define GPRS_USER "web"
 #define GPRS_PASSWORD "web"
@@ -20,31 +19,18 @@
 
 #define NUM_TCP_CONNECTION_RETRIES 5
 
-// TODO: this is unused, remove in next release
-void printCharDetail(char incoming_char) {
-  Serial.print((int)incoming_char);
-  Serial.print('[');
-  Serial.print((char)incoming_char);
-  Serial.print(']');
-  Serial.print(' ');
-}
-
 /// A class that sends AT commands to a GPRS modem which make it send data to a
 /// thingspeak channel. It was written and tested with a Quectel M10 modem.
 class ThingspeakConnection {
  public:
   ThingspeakConnection(Stream& communicationStream)
-      : serial(&communicationStream),
-        lastPackageSent(0),
-        numAttempts(0),
-        numSuccesses(0) {}
+      : serial(&communicationStream) {}
 
   /// Tries to push the battery status and two sensor values to thingspeak.
   /// Returns true if it was successfull (HTTP 200 and nonzero answer from
   /// thingspeak), fals if something went wrong (even after wainting long and
   /// trying some things a couple of times).
   boolean tryPushToThingSpeak(float bat, int sensor1, int sensor2) {
-    numAttempts++;
     D_MSG(2, "Now try to push data");
     D_MSG(2, "Disabeling echo!");
     // Firs we try for at least 5 times to send a simple command to the modem
@@ -108,9 +94,9 @@ class ThingspeakConnection {
     /// **********************************
     /// Here we do the actual HTTP request
     /// **********************************
-    serial->print(
-        "GET /update?api_key=YDHVCBHPKX9TOPXF&field1=");  // TODO make the API
-                                                          // key configurable
+    serial->print("GET /update?api_key=");
+    serial->print(THINGSPEAK_CHANNEL_KEY);
+    serial->print(" &field1=");
     serial->print(bat);
     serial->print("&field2=");
     serial->print(sensor1);
@@ -149,8 +135,6 @@ class ThingspeakConnection {
           2,
           "Somehow we did not read CLOSED! We still assume the data was sent");
 
-    lastPackageSent = millis();  // TODO: unused, remove in the next release
-    numSuccesses++;
     return true;
   }
 
@@ -215,9 +199,6 @@ class ThingspeakConnection {
  private:
   /// The serial interface to be used to communicate with the modem
   Stream* serial;
-
-  /// TODO: Some unused variables to be removed in the next release
-  unsigned long lastPackageSent, numAttempts, numSuccesses;
 
   /// Waits until the TCP stack of the modem is ready. For this the state of the
   /// TCP stack is constantly checked using AT+QISTAT in 50ms intervals. If the

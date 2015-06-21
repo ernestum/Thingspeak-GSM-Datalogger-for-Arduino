@@ -4,13 +4,12 @@
 #include "Timeout.h"
 #include "Debugging.h"
 
-enum PowerState { ON, OFF };
-
 /// This class extends the functionality of the normal ThingspeakConnection by
 /// powering and unpowering the modem between transmissions to save power.
 /// Special purpose hardware is required for this!
 class PowerControledThingspeakConnection : public ThingspeakConnection {
  public:
+  enum PowerState { ON, OFF };
   PowerControledThingspeakConnection(Stream &communicationStream,
                                      int gndCTRLPin, int vccCTRLPin,
                                      int resetPin)

@@ -13,6 +13,7 @@
 // Internal includes
 #include "Debugging.h"
 #include "PowerControledThingspeakConnection.h"
+#include "Queue.h"
 
 // Controll pins for the modem
 #define GNDCTRLPIN 12
@@ -25,7 +26,7 @@
 #define NUM_TRANSMISSION_RETRIES 5
 #define DELAY_AFTER_TRANSMISSION_FAILURE 60 * 60 * 5  // 5 hours in seconds
 #define REGULAR_UPDATE_INTERVAL 60 * 60 * 22  // 22 hours in seconds in seconds
-#define QSIZE 5
+#define QSIZE 5 // Size of the outgoing queue for thingspeak updates
 
 // This serial interface is used to communicate with the modem
 SoftwareSerial modemSerial(MODEM_SOFT_SERIAL_RX,
@@ -34,78 +35,6 @@ SoftwareSerial modemSerial(MODEM_SOFT_SERIAL_RX,
 // Here we set up an interface to a power controled GSM modem
 PowerControledThingspeakConnection modem(modemSerial, GNDCTRLPIN, VCC2TRLPIN,
                                          MODEM_RESET_PIN);
-
-// Struct to store a sensor reading. Used so we can store sensor readings in a
-// queue
-typedef struct {
-  int sensor1;
-  int sensor2;
-} SensorReading;
-
-/// A simple fixed-length queue implementation to manage unsent sensor readings.
-template <typename T>
-class Queue {
- public:
-  Queue() : entry(0), exit(0), size(0) {}
-
-  bool isEmpty() { return size == 0; }
-
-  bool isFull() { return size == QSIZE; }
-
-  /// Puts a new element into the queue.
-  /// If the queue is already full, the first element in the queue is
-  /// overridden.
-  void enqueue(const T e) {
-    if (isFull())
-      exit = next(exit);
-    else
-      ++size;
-    array[entry] = e;
-    entry = next(entry);
-  }
-
-  /// Removes the first element of the queue and returns it.
-  /// If the queue is empty, the last dequeued element is returned.
-  T dequeue() {
-    if (!isEmpty()) {
-      exit = next(exit);
-      --size;
-    }
-    return array[prev(exit)];
-  }
-
-  /// Returns the first element of the queue without removing it
-  T peek() { return array[exit]; }
-
-  /// Stores the amout of elements in the queue
-  uint8_t size;
-
-  /// Here is the actual content of the queue stored.
-  T array[QSIZE];
-
- private:
-  uint8_t entry, exit;
-
-  /// Return the index of the element that comes after index i
-  inline uint8_t next(uint8_t i) { return (i + 1) % QSIZE; }
-
-  /// Return the index of the element that comes before index i
-  inline uint8_t prev(uint8_t i) { return i == 0 ? QSIZE - 1 : i - 1; }
-};
-
-// A queue to store unsent sensor readings.
-Queue<SensorReading> sensorReadingQueue;
-
-void setup() {
-#ifdef DEBUG_BUILD
-  Serial.begin(9600);
-  while (!Serial)
-    ;  // wait until the serial monitor is opened
-#endif
-
-  modemSerial.begin(9600);
-  enableSensors();
-}
 
 // The estimated number of seconds elapsed since startup
 unsigned long elapsedSeconds = 0;
@@ -119,18 +48,41 @@ unsigned long nextRetryUpdate = 0;
 /// In regular mode we send out updates to thingpseak in regular
 /// intervals or if any of the sensors change. If a transmission
 /// fails we transition to WAIT_AFTER_FAIL mode.
-#define REGULAR 0
 
 /// In WAIT_AFTER_FAIL mode we do not transmit any data until
 /// DELAY_AFTER_TRANSMISSION_FAILURE seconds have passed. Any
 /// changes of the sensor values will be cached in a queue until then.
 /// As soon as a new transmission attempt is successfull we transition
 /// back to REGULAR mode.
-#define WAIT_AFTER_FAIL 1
 
 // The current mode we are operating in. This can be either REGULAR or
 // WAIT_AFTER_FAIL
-uint8_t mode = REGULAR;
+enum OperationMode {REGULAR, WAIT_AFTER_FAIL};
+OperationMode mode = REGULAR;
+
+// Struct to store a sensor reading in a queue
+typedef struct {
+  int sensor1;
+  int sensor2;
+} SensorReading;
+
+// A queue to store unsent sensor readings.
+Queue<QSIZE, SensorReading> sensorReadingQueue;
+
+void setup() {
+#ifdef DEBUG_BUILD
+  Serial.begin(9600);
+  while (!Serial)
+    ;  // wait until the serial monitor is opened
+#endif
+
+  modemSerial.begin(9600);
+  enableSensors();
+}
+
+
+
+
 
 // Main loop of the program
 void loop() {

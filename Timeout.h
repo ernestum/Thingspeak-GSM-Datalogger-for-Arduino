@@ -1,5 +1,6 @@
 #ifndef TIMEOUT_H
 #define TIMEOUT_H
+#include <Arduino.h>
 
 /// A simple helper class to implement a timeout
 /// Initialize it with a duration and then check if it already elapsed
