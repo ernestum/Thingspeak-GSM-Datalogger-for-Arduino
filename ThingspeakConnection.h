@@ -28,7 +28,7 @@ class ThingspeakConnection {
 
   /// Tries to push the battery status and two sensor values to thingspeak.
   /// Returns true if it was successfull (HTTP 200 and nonzero answer from
-  /// thingspeak), fals if something went wrong (even after wainting long and
+  /// thingspeak), false if something went wrong (even after waiting long and
   /// trying some things a couple of times).
   boolean tryPushToThingSpeak(float bat, int sensor1, int sensor2) {
     D_MSG(2, "Now try to push data");
@@ -43,7 +43,7 @@ class ThingspeakConnection {
     }
     if (!fistCommandSuccess) return false;
 
-    // Hwere we set up and prepeare everything for the new TCP connection to be
+    // Here we set up and prepeare everything for the new TCP connection to be
     // opened
     D_MSG(2, "Close any previous connections");
     sendCommand("AT+QICLOSE", "OK\r\n", FAST_TIMEOUT);
@@ -54,16 +54,16 @@ class ThingspeakConnection {
                 "OK\r\n", FAST_TIMEOUT);
 
     D_MSG(2,
-          "Telling him to print out the incomming tcp data directly to the "
+          "Telling him to print out the incoming tcp data directly to the "
           "serial interface");
     if (!sendCommand("AT+QINDI=0", "OK\r\n", FAST_TIMEOUT)) {
       D_MSG(2, "This Failed");
       return false;
     }
 
-    D_MSG(2, "Waiting for the IP STACK to be ready");
+    D_MSG(2, "Waiting for the IP stack to be ready");
     if (!waitForTCPStack(SLOW_TIMEOUT)) {
-      D_MSG(2, "No Ready IP Stack?");
+      D_MSG(2, "No Ready IP stack?");
       return false;
     }
 
